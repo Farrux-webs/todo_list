@@ -1,0 +1,315 @@
+TodoApp
+
+qilinadigan amallar. Todo qo'shish, o'chirish, o'zgartira olish. Bajarildi yoki bajarilmadiga o'tkazish. 
+
+Todolarni ko'rishda uning pagination qilib chiqarish. Todolarni sanasi bo'yicha filter qila olish.
+
+
+maximal ball 100
+Create - 15
+O'zgartirish - 15
+o'chirish - 10
+Statusini o'zgartirish - 15
+GEt by pagination and filter - 45
+
+
+O'tish bali 60
+
+Vaqt 3 soat
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Stack Overflow
+About
+Products
+For Teams
+Search…
+Home
+PUBLIC
+Questions
+Tags
+Users
+Companies
+COLLECTIVES
+Explore Collectives
+TEAMS
+Stack Overflow for Teams – Start collaborating and sharing organizational knowledge. 
+SQL Query For pagination has Filter
+Asked 4 years, 8 months ago
+Modified 4 years, 8 months ago
+Viewed 1k times
+
+1
+
+
+I'm using T-SQL for pagination like this
+
+SELECT @PageSize = 4,
+@Page = 1;
+SELECT T.* FROM (((SELECT RANK() OVER(PARTITION BY 'T' ORDER BY ID) AS 
+RowIndex, * FROM VideoGallery) AS T
+INNER JOIN Video_Category ON T.ID = Video_Category.VideoID)
+INNER JOIN VCategories ON VCategories.Name = N'catname' AND 
+Video_Category.CategoryID = VCategories.ID)
+WHERE T.RowIndex BETWEEN ((@Page - 1) * @PageSize + 1) AND (@Page * 
+@PageSize);
+result is like:
+
+ROWINDEX     NAME
+   1        backup
+   2        email   
+   3        fax
+   4        GSM
+   5        backup
+   6        email   
+   13       fax
+   18       GSM
+Problem: in page number 2 only shown 2 result i want to show ROWINDEX 13 and 18 be in page 2
+
+sqlsql-servertsql
+Share
+Follow
+edited Aug 6, 2018 at 7:43
+hotfix's user avatar
+hotfix
+3,3661919 silver badges3434 bronze badges
+asked Aug 6, 2018 at 7:38
+user4153970
+Could you provide some sample data and expect reslt? – 
+D-Shih
+ Aug 6, 2018 at 8:19
+Add a comment
+3 Answers
+Sorted by:
+
+Highest score (default)
+
+1
+
+
+try this way
+
+ORDER BY ******
+
+OFFSET @ItemsPerPage * (@CurrentPage - 1) ROWS
+
+FETCH NEXT @ItemsPerPage ROWS ONLY
+
+DECLARE @Page int = 1;
+DECLARE @PageSize int = 4;
+
+SELECT T.* FROM (((SELECT RANK() OVER(PARTITION BY 'T' ORDER BY ID) AS 
+RowIndex, * FROM VideoGallery) AS T
+INNER JOIN Video_Category ON T.ID = Video_Category.VideoID)
+INNER JOIN VCategories ON VCategories.Name = N'catname' AND 
+Video_Category.CategoryID = VCategories.ID)
+
+ORDER BY T.ID
+OFFSET @PageSize * (@Page - 1) ROWS
+FETCH NEXT @PageSize ROWS ONLY
+Share
+Follow
+answered Aug 6, 2018 at 8:40
+giorgi02's user avatar
+giorgi02
+55355 silver badges1313 bronze badges
+Add a comment
+
+0
+
+
+@MorteZa SenFi; have a look at this mock up. I think the issue might actually be from your definition of RowIndex (you should use ROW_NUMBER rather than RANK. Check that the RowIndex Column is actually sequential and consecutive.
+
+enter image description here
+
+See a simple example below:
+
+DECLARE @PageSize INT = 3
+DECLARE @Page INT = 2;
+
+
+DECLARE @tblVideoGallery TABLE (Id INT, Name VARCHAR(20))
+INSERT INTO @tblVideoGallery
+SELECT 1,'backup' UNION ALL
+SELECT 2, 'email' UNION ALL   
+SELECT 3, 'fax' UNION ALL 
+SELECT 4, 'GSM' UNION ALL 
+SELECT 5, 'backup' UNION ALL 
+SELECT 6, 'email'  UNION ALL   
+SELECT 7, 'fax' UNION ALL 
+SELECT 8, 'GSM'
+
+
+
+
+
+
+SELECT T.* 
+FROM (
+SELECT  ROW_NUMBER() OVER(ORDER BY ID) AS RowIndex, *
+FROM @tblVideoGallery
+
+) T
+--INNER JOIN Video_Category ON T.ID = Video_Category.VideoID)
+--INNER JOIN VCategories ON VCategories.Name = N'catname' AND 
+--Video_Category.CategoryID = VCategories.ID)
+WHERE T.RowIndex BETWEEN ((@Page - 1) * @PageSize + 1) AND (@Page * 
+@PageSize);
+See result: enter image description here
+
+Share
+Follow
+answered Aug 6, 2018 at 8:41
+MEdwin's user avatar
+MEdwin
+2,90011 gold badge1313 silver badges2727 bronze badges
+Add a comment
+
+0
+
+
+This query fails becasue your joins filter out some row numbers, so the aren't consecutive and can have gaps between.
+
+I have rewritten your query with proper indentation and removed unnecessary query nestings. Give it a try:
+
+SELECT @PageSize = 4, @Page = 1;
+SELECT * 
+FROM (
+  SELECT vg.*,
+         RANK() OVER(/*PARTITION BY 'T' */ORDER BY vc.VideoID) AS RowIndex
+  FROM VideoGallery AS vg
+  INNER JOIN Video_Category vc ON vg.ID = vc.VideoID
+  INNER JOIN VCategories vc2 ON vc2.[Name] = N'catname' AND vc.CategoryID = vc2.ID
+) a
+WHERE RowIndex BETWEEN ((@Page - 1) * @PageSize + 1) AND (@Page * @PageSize);
+Also, I have commented part of a code here RANK() OVER(/*PARTITION BY 'T' */ORDER BY ID), uncomment it, if you really want to.
+
+Share
+Follow
+edited Aug 6, 2018 at 9:28
+user4153970
+answered Aug 6, 2018 at 8:55
+Michał Turczyn's user avatar
+Michał Turczyn
+31.7k1414 gold badges4545 silver badges6969 bronze badges
+Add a comment
+Your Answer
+Sign up or log in
+Post as a guest
+Name
+Email
+Required, but never shown
+
+By clicking “Post Your Answer”, you agree to our terms of service, privacy policy and cookie policy
+
+The Overflow Blog
+What’s the difference between software engineering and computer science degrees?
+Going stateless with authorization-as-a-service (Ep. 553)
+Featured on Meta
+Improving the copy in the close modal and post notices - 2023 edition
+Plagiarism flag and moderator tooling has launched to Stack Overflow!
+Temporary policy: ChatGPT is banned
+Should we burninate the [protection] tag?
+Do you observe increased relevance of Related Questions with our Machine...
+Related
+1762
+How do I perform an IF...THEN in an SQL SELECT?
+3190
+Add a column with a default value to an existing table in SQL Server
+2137
+How to return only the Date from a SQL Server DateTime datatype
+2134
+How to check if a column exists in a SQL Server table
+2354
+How to concatenate text from multiple rows into a single text string in SQL Server
+2026
+LEFT JOIN vs. LEFT OUTER JOIN in SQL Server
+1560
+How can I do an UPDATE statement with JOIN in SQL Server?
+4182
+How do I UPDATE from a SELECT in SQL Server?
+1562
+What are the options for storing hierarchical data in a relational database?
+1662
+Find all tables containing column with specified name - MS SQL Server
+Hot Network Questions
+Suffixes for historical figures
+Low water pressure on a hill solutions
+Reference request for condensed math
+What does "wife on the crupper" mean in Hunchback of Notre Dame?
+Where do I send a nomination for the Presidential Medal of Freedom?
+modelling a curvy tap
+Why would Putin refer to Lukashenko as Potato Moose?
+How to draw a diagram without using graphics
+Unreadable Russian TeX files
+Secondary meaning of "truce"
+Reject promotion because of teaching load
+How to copy a Sitecore 10 site from one environment to another?
+What happens if a law contains an error of fact?
+If I overpay estimated taxes in Q1, am I allowed to underpay in the other quarters?
+"Why" do animals excrete excess nitrogen instead of recycling it?
+How does entering God’s rest keep us from falling?
+What kind of fallacy is this?
+Mertens-like theorem
+Narrowband imaging wavelengths in NIR?
+Can I tell DeleteCases not to delete function arguments?
+Table Cell colors have white gaps between them
+mv: rename <oldname> to <newname>/<oldname>: Invalid argument
+What to do if a special case of a theorem is published
+How to arbitrate climactic moments in which characters might achieve something extraordinary?
+ Question feed
+
+STACK OVERFLOW
+Questions
+Help
+PRODUCTS
+Teams
+Advertising
+Collectives
+Talent
+COMPANY
+About
+Press
+Work Here
+Legal
+Privacy Policy
+Terms of Service
+Contact Us
+Cookie Settings
+Cookie Policy
+STACK EXCHANGE NETWORK
+Technology
+Culture & recreation
+Life & arts
+Science
+Professional
+Business
+API
+Data
+Blog
+Facebook
+Twitter
+LinkedIn
+Instagram
+Site design / logo © 2023 Stack Exchange Inc; user contributions licensed under CC BY-SA. rev 2023.4.11.43382
